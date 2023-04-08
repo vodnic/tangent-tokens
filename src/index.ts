@@ -2,8 +2,12 @@ import express from 'express';
 import log4js from 'log4js';
 import { getToken } from './tokens';
 import { Pool } from 'pg';
+import dotenv from 'dotenv';
 
 const app = express();
+dotenv.config();
+
+const PORT = process.env.MS_TOKENS_PORT || 3000;
 
 const dbPool = new Pool({
   host: process.env.DB_HOST,
@@ -28,6 +32,6 @@ app.get('/token/:tokenAddress', async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  logger.info('Server is listening on port 3000');
+app.listen(PORT, () => {
+  logger.info('Server is listening on port ' + PORT);
 });
