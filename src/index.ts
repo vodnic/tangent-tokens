@@ -17,12 +17,17 @@ log4js.configure('log4js.json');
 const logger = log4js.getLogger('index.ts');
 
 app.get('/token/:tokenAddress', async (req, res) => {
-  res.send("pong");
+  const tokenAddress = req.params.tokenAddress;
+  try {
+    const token = await getToken(dbPool, tokenAddress);
+    res.status(200);
+    res.send(token);
+  } catch (e) {
+    res.status(400);
+    res.send({ error: e.message });
+  }
 });
 
 app.listen(3000, () => {
   logger.info('Server is listening on port 3000');
 });
-
-const tokenAddress = '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599'; // WBTC
-getToken(dbPool, tokenAddress).then((token) => {console.log(token)});
