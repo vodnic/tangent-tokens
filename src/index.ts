@@ -20,6 +20,21 @@ const dbPool = new Pool({
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('index.ts');
 
+const testDbConnection = async () => {
+  // Test DB connection
+  try {
+    logger.debug("Testing DB connection...");
+    const client = await dbPool.connect();
+    logger.debug('Successfully connected to database!');
+    const res = await client.query('SELECT NOW()');
+    logger.debug('Current time in database:', res.rows[0].now);
+    client.release();
+  } catch (err) {
+    logger.error("DB connection failed: ", err);
+    process.exit(1);
+  }
+}
+
 app.get('/token/:tokenAddress', async (req, res) => {
   const tokenAddress = req.params.tokenAddress;
   try {
@@ -32,6 +47,7 @@ app.get('/token/:tokenAddress', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await testDbConnection();
   logger.info('Server is listening on port ' + PORT);
 });
