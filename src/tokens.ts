@@ -47,6 +47,7 @@ export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Toke
   const ethAddressRegex = /^(0x)?[0-9a-fA-F]{40}$/;
   const isValidEthAddress = ethAddressRegex.test(tokenAddress);
   if (!isValidEthAddress) {
+    logger.warn(`Invalid token address: ${tokenAddress}`);
     throw new Error(`Invalid token address: ${tokenAddress}`);
   }
 
@@ -64,7 +65,7 @@ export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Toke
 
   // Cache exists
   if (token) {
-    const priceExpired = token.lastUpdated.getTime() + CACHE_DURATION < Date.now();
+    const priceExpired = token.lastUpdated.getTime() + CACHE_DURATION > Date.now();
     if (!priceExpired) {
       // Price is still valid, return cached data
       logger.debug(`Returning cached data for ${tokenAddress}`);
