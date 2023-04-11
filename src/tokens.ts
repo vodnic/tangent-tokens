@@ -18,8 +18,9 @@ const logger = log4js.getLogger('Tokens');
 
 const ISSUING_PLATFORM = 'ethereum';
 const MILLISECONDS_IN_HOUR = 60 * 60 * 1000; // Milliseconds in 1 hour
-const CACHE_DURATION = 5 * MILLISECONDS_IN_HOUR;
+const CACHE_DURATION = 1000 * MILLISECONDS_IN_HOUR; // TODO: remove after testing
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
+const ETHER_DUMMY_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
 interface Token {
   address: string;
@@ -65,7 +66,7 @@ export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Toke
 
   // Cache exists
   if (token) {
-    const priceExpired = token.lastUpdated.getTime() + CACHE_DURATION > Date.now();
+    const priceExpired = token.lastUpdated.getTime() + CACHE_DURATION < Date.now();
     if (!priceExpired) {
       // Price is still valid, return cached data
       logger.debug(`Returning cached data for ${tokenAddress}`);
@@ -135,22 +136,35 @@ async function updateTokenInDb(dbPool: Pool, token: Token): Promise<void> {
 
 async function collectLiveData(dbPool: Pool, tokenAddress: string): Promise<Token> {
   try {
-    const tokenContract = new web3.eth.Contract(erc20ABI, tokenAddress);
-    const name = await tokenContract.methods.name().call();
-    const symbol = await tokenContract.methods.symbol().call();
-    const decimals = await tokenContract.methods.decimals().call();
-    const price = await getCoingeckoPrice(tokenAddress);
+    if (tokenAddress === ETHER_DUMMY_ADDRESS) {
+      const price = await getCoingeckoPrice(tokenAddress);
 
-    const token: Token = {
-      address: tokenAddress,
-      name: name,
-      symbol: symbol,
-      decimals: decimals,
-      price: price,
-      lastUpdated: new Date(),
-    };
+      const token: Token = {
+        address: tokenAddress,
+        name: "Ether",
+        symbol: "ETH",
+        decimals: 18,
+        price: price,
+        lastUpdated: new Date(),
+      };
+      return token;
+    } else {
+      const tokenContract = new web3.eth.Contract(erc20ABI, tokenAddress);
+      const name = await tokenContract.methods.name().call();
+      const symbol = await tokenContract.methods.symbol().call();
+      const decimals = await tokenContract.methods.decimals().call();
+      const price = await getCoingeckoPrice(tokenAddress);
 
-    return token;
+      const token: Token = {
+        address: tokenAddress,
+        name: name,
+        symbol: symbol,
+        decimals: decimals,
+        price: price,
+        lastUpdated: new Date(),
+      };
+      return token;
+    }
   } catch (error) {
     logger.error(`Error fetching token data for ${tokenAddress}`, error);
     throw new Error(`Error fetching token data for ${tokenAddress} from the blockchain`);
@@ -160,12 +174,18 @@ async function collectLiveData(dbPool: Pool, tokenAddress: string): Promise<Toke
 async function getCoingeckoPrice(tokenAddress: string): Promise<BigNumber | null> {
   logger.info(`Fetching token price for ${tokenAddress} from Coingecko`)
   try {
-    const response = await axios.get(`${COINGECKO_URL}/simple/token_price/${ISSUING_PLATFORM}`, {
-      params: {
-        contract_addresses: tokenAddress,
-        vs_currencies: 'usd',
-      },
-    });
+    let response = null;
+    logger.debug(`Fetching token price for ${tokenAddress} from Coingecko`)
+    if (tokenAddress === ETHER_DUMMY_ADDRESS) {
+      logger.debug(`Fetching ETH price from Coingecko`)
+      response = await axios.get(`${COINGECKO_URL}/simple/price`, { 
+        params: { ids: 'ethereum', vs_currencies: 'usd', }});
+        logger.debug(response.data);
+    } else {
+      logger.debug(`Fetching token price for ${tokenAddress} from Coingecko`)
+      response = await axios.get(`${COINGECKO_URL}/simple/token_price/${ISSUING_PLATFORM}`, {
+        params: { contract_addresses: tokenAddress, vs_currencies: 'usd', }});
+    }
 
     const keys = Object.keys(response.data);
     if (keys.length > 0 && response.data[keys[0]].usd !== undefined) {
