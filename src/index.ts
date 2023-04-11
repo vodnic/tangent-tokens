@@ -3,6 +3,7 @@ import log4js from 'log4js';
 import { getToken } from './tokens';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
+import { bulkUpdateTokensInDb } from './bulkUpdate';
 
 const app = express();
 dotenv.config();
@@ -51,3 +52,6 @@ app.listen(PORT, async () => {
   await testDbConnection();
   logger.info('Server is listening on port ' + PORT);
 });
+
+bulkUpdateTokensInDb(dbPool)
+setInterval(() => { bulkUpdateTokensInDb(dbPool); }, 3600000);

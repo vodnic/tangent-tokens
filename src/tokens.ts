@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import { AbiItem } from "web3-utils";
 import { BigNumber } from "bignumber.js";
 import _erc20ABI from "./abis/erc20ABI.json";
+import { Token } from "./models";
 
 const erc20ABI = _erc20ABI as AbiItem[];
 
@@ -21,26 +22,6 @@ const MILLISECONDS_IN_HOUR = 60 * 60 * 1000; // Milliseconds in 1 hour
 const CACHE_DURATION = 1000 * MILLISECONDS_IN_HOUR; // TODO: remove after testing
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
 const ETHER_DUMMY_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
-
-interface Token {
-  address: string;
-  name: string;
-  symbol: string;
-  decimals: number;
-  price: BigNumber;
-  lastUpdated: Date;
-}
-
-/*
-CREATE TABLE tokens (
-  address VARCHAR(42) PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  symbol VARCHAR(10) NOT NULL,
-  decimals INTEGER NOT NULL,
-  price NUMERIC(38, 18) NOT NULL,
-  last_updated TIMESTAMP WITH TIME ZONE NOT NULL
-);
-*/
 
 const tokenCache = new Map<string, Token>();
 export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Token> {
@@ -190,7 +171,7 @@ async function getCoingeckoPrice(tokenAddress: string): Promise<BigNumber | null
     const keys = Object.keys(response.data);
     if (keys.length > 0 && response.data[keys[0]].usd !== undefined) {
       const price = response.data[keys[0]].usd;
-      return new BigNumber(price);;
+      return new BigNumber(price);
     } else {
       throw new Error('No price found');
     }
