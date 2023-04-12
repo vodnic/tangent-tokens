@@ -9,7 +9,7 @@ const logger = log4js.getLogger('Tokens');
 
 const ISSUING_PLATFORM = 'ethereum';
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
-const MAX_BULK_UPDATE = 15;
+const MAX_BULK_UPDATE = 15; // I can't find anythying in the docs, I tried 20, and got different return counts
 const ETHER_DUMMY_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
 export async function bulkUpdateTokensInDb(dbPool: Pool) {
@@ -37,9 +37,13 @@ export async function bulkUpdateTokensInDb(dbPool: Pool) {
 }
 
 async function fetchFreshPrices(tokenAddresses: string): Promise<any> {
+  try {
   const response = await axios.get(`${COINGECKO_URL}/simple/token_price/${ISSUING_PLATFORM}`, {
     params: { contract_addresses: tokenAddresses, vs_currencies: 'usd', }});
   return response
+  } catch (error) {
+    logger.error(`Error bulk fetching token prices from CoinGecko`);
+  }
 }
 
 async function updateTokensInDb(dbPool: Pool, tokens: Token[]) {
