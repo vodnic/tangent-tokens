@@ -10,8 +10,7 @@ import { Addresses } from "tangent-utils";
 
 const erc20ABI = _erc20ABI as AbiItem[];
 
-const web3 = new Web3Current();
-web3.healthCheck();
+const web3 = Web3Current();
 
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
