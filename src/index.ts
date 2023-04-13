@@ -29,5 +29,5 @@ app.get('/token/:tokenAddress', async (req, res) => {
   }
 });
 
-bulkUpdateTokensInDb(dbPool)
+// bulkUpdateTokensInDb(dbPool)
 setInterval(() => { bulkUpdateTokensInDb(dbPool); }, 3600000);

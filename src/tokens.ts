@@ -1,4 +1,3 @@
-import axios from 'axios';
 import log4js from "log4js";
 import { Pool } from "pg";
 import { BigNumber } from "bignumber.js";
@@ -6,16 +5,15 @@ import { Token } from "tangent-utils";
 import { Web3Current } from "tangent-utils";
 import { Addresses } from "tangent-utils";
 import { Contracts } from "tangent-utils";
+import { getCoingeckoCoinPrice, getCoingeckoTokenPrice } from "./coingeckoClinet";
 
 const web3 = Web3Current();
 
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
 
-const ISSUING_PLATFORM = 'ethereum';
 const MILLISECONDS_IN_HOUR = 60 * 60 * 1000; // Milliseconds in 1 hour
 const CACHE_DURATION = 1000 * MILLISECONDS_IN_HOUR; // TODO: remove after testing
-const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
 
 const tokenCache = new Map<string, Token>();
 export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Token> {
@@ -122,10 +120,12 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
       };
       return token;
     } else {
+      // Some tokens (like MKR) might fail here, as they don't implement name and symbol of ERC20
       const tokenContract = Contracts.ERC20(web3, tokenAddress);
-      const name = await tokenContract.methods.name().call();
+      const name: string = await tokenContract.methods.name().call();
       const symbol = await tokenContract.methods.symbol().call();
       const decimals = await tokenContract.methods.decimals().call();
+
       const price = await getCoingeckoPrice(tokenAddress);
 
       const token: Token = {
@@ -145,31 +145,10 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
 }
 
 async function getCoingeckoPrice(tokenAddress: string): Promise<BigNumber | null> {
-  try {
-    let response = null;
-    logger.debug(`Fetching token price for ${tokenAddress} from Coingecko`)
-    if (tokenAddress === Addresses.ETHER_DUMMY_ADDRESS) {
-      logger.debug(`Fetching ETH price from Coingecko`)
-      response = await axios.get(`${COINGECKO_URL}/simple/price`, { 
-        params: { ids: 'ethereum', vs_currencies: 'usd', }});
-        logger.debug(response.data);
-    } else {
-      logger.debug(`Fetching token price for ${tokenAddress} from Coingecko`)
-      response = await axios.get(`${COINGECKO_URL}/simple/token_price/${ISSUING_PLATFORM}`, {
-        params: { contract_addresses: tokenAddress, vs_currencies: 'usd', }});
-    }
-
-    const keys = Object.keys(response.data);
-    if (keys.length > 0 && response.data[keys[0]].usd !== undefined) {
-      const price = response.data[keys[0]].usd;
-      return new BigNumber(price);
-    } else {
-      throw new Error('No price found');
-    }
-  } catch (error: any) {
-    console.error(`Error fetching token price:` + error.code);
-    console.error(error.message);
-    console.error(error.response);
-    return null;
+  logger.debug(`Fetching token price for ${tokenAddress} from Coingecko`)
+  if (tokenAddress === Addresses.ETHER_DUMMY_ADDRESS) {
+    return getCoingeckoCoinPrice('ethereum');
+  } else {
+    return getCoingeckoTokenPrice(tokenAddress);
   }
 }
