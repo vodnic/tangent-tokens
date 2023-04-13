@@ -1,18 +1,17 @@
-import dotenv from "dotenv";
 import axios from 'axios';
-import Web3 from "web3";
 import log4js from "log4js";
 import { Pool } from "pg";
 import { AbiItem } from "web3-utils";
 import { BigNumber } from "bignumber.js";
 import _erc20ABI from "./abis/erc20ABI.json";
 import { Token } from "./models";
+import { Web3Current } from "tangent-utils";
+import { Addresses } from "tangent-utils";
 
 const erc20ABI = _erc20ABI as AbiItem[];
 
-dotenv.config();
-
-const web3 = new Web3(new Web3.providers.HttpProvider(process.env.ethereumNodeUrl));
+const web3 = new Web3Current();
+web3.healthCheck();
 
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
@@ -21,7 +20,6 @@ const ISSUING_PLATFORM = 'ethereum';
 const MILLISECONDS_IN_HOUR = 60 * 60 * 1000; // Milliseconds in 1 hour
 const CACHE_DURATION = 1000 * MILLISECONDS_IN_HOUR; // TODO: remove after testing
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
-const ETHER_DUMMY_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
 const tokenCache = new Map<string, Token>();
 export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Token> {
@@ -64,7 +62,7 @@ export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Toke
   } else {
     // No cache, fetch fresh data
     try {
-      const liveData = await collectLiveData(dbPool, tokenAddress);
+      const liveData = await collectLiveData(tokenAddress);
       updateTokenInDb(dbPool, liveData);
       tokenCache.set(tokenAddress, liveData);
       return liveData;
@@ -115,9 +113,9 @@ async function updateTokenInDb(dbPool: Pool, token: Token): Promise<void> {
 }
 
 
-async function collectLiveData(dbPool: Pool, tokenAddress: string): Promise<Token> {
+async function collectLiveData(tokenAddress: string): Promise<Token> {
   try {
-    if (tokenAddress === ETHER_DUMMY_ADDRESS) {
+    if (tokenAddress === Addresses.ETHER_DUMMY_ADDRESS) {
       const price = await getCoingeckoPrice(tokenAddress);
 
       const token: Token = {
@@ -157,7 +155,7 @@ async function getCoingeckoPrice(tokenAddress: string): Promise<BigNumber | null
   try {
     let response = null;
     logger.debug(`Fetching token price for ${tokenAddress} from Coingecko`)
-    if (tokenAddress === ETHER_DUMMY_ADDRESS) {
+    if (tokenAddress === Addresses.ETHER_DUMMY_ADDRESS) {
       logger.debug(`Fetching ETH price from Coingecko`)
       response = await axios.get(`${COINGECKO_URL}/simple/price`, { 
         params: { ids: 'ethereum', vs_currencies: 'usd', }});
