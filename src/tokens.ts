@@ -4,7 +4,7 @@ import { Pool } from "pg";
 import { AbiItem } from "web3-utils";
 import { BigNumber } from "bignumber.js";
 import _erc20ABI from "./abis/erc20ABI.json";
-import { Token } from "./models";
+import { Token } from "tangent-utils";
 import { Web3Current } from "tangent-utils";
 import { Addresses } from "tangent-utils";
 

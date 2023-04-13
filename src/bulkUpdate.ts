@@ -2,7 +2,8 @@ import axios from 'axios';
 import log4js from "log4js";
 import { Pool } from "pg";
 import { BigNumber } from "bignumber.js";
-import { Token } from "./models";
+import { Token } from "tangent-utils";
+import { Addresses } from 'tangent-utils';
 
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
@@ -10,13 +11,18 @@ const logger = log4js.getLogger('Tokens');
 const ISSUING_PLATFORM = 'ethereum';
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
 const MAX_BULK_UPDATE = 15; // I can't find anythying in the docs, I tried 20, and got different return counts
-const ETHER_DUMMY_ADDRESS = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
 
+/*
+* Fetches oldest MAX_BULK_UPDATE tokens from DB and updates their prices
+* from CoinGecko. This is different logic from the regular getToken() function
+* in that it does one request to CoinGecko for all tokens, instead of one per 
+* token in getToken().
+*/
 export async function bulkUpdateTokensInDb(dbPool: Pool) {
   logger.info('Bulk updating tokens in DB');
   const allTokens: Token[] = await fetchAllTokensFromDB(dbPool);
   const addresses: string[] = allTokens.map(token => token.address);
-  const tokenAddress: string[] = addresses.filter(address => address !== ETHER_DUMMY_ADDRESS);
+  const tokenAddress: string[] = addresses.filter(address => address !== Addresses.ETHER_DUMMY_ADDRESS);
   const jointAddress = tokenAddress.join(',');
 
   logger.debug(`Fetching new price for ${tokenAddress.length} tokens`);
