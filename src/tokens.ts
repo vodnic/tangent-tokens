@@ -1,14 +1,11 @@
 import axios from 'axios';
 import log4js from "log4js";
 import { Pool } from "pg";
-import { AbiItem } from "web3-utils";
 import { BigNumber } from "bignumber.js";
-import _erc20ABI from "./abis/erc20ABI.json";
 import { Token } from "tangent-utils";
 import { Web3Current } from "tangent-utils";
 import { Addresses } from "tangent-utils";
-
-const erc20ABI = _erc20ABI as AbiItem[];
+import { Contracts } from "tangent-utils";
 
 const web3 = Web3Current();
 
@@ -23,9 +20,7 @@ const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
 const tokenCache = new Map<string, Token>();
 export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Token> {
   // Validate address
-  const ethAddressRegex = /^(0x)?[0-9a-fA-F]{40}$/;
-  const isValidEthAddress = ethAddressRegex.test(tokenAddress);
-  if (!isValidEthAddress) {
+  if (!web3.utils.isAddress(tokenAddress)) {
     logger.warn(`Invalid token address: ${tokenAddress}`);
     throw new Error(`Invalid token address: ${tokenAddress}`);
   }
@@ -127,7 +122,7 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
       };
       return token;
     } else {
-      const tokenContract = new web3.eth.Contract(erc20ABI, tokenAddress);
+      const tokenContract = Contracts.ERC20(web3, tokenAddress);
       const name = await tokenContract.methods.name().call();
       const symbol = await tokenContract.methods.symbol().call();
       const decimals = await tokenContract.methods.decimals().call();
@@ -150,7 +145,6 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
 }
 
 async function getCoingeckoPrice(tokenAddress: string): Promise<BigNumber | null> {
-  logger.info(`Fetching token price for ${tokenAddress} from Coingecko`)
   try {
     let response = null;
     logger.debug(`Fetching token price for ${tokenAddress} from Coingecko`)
