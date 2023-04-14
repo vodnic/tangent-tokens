@@ -1,5 +1,9 @@
+import log4js from "log4js";
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+
+log4js.configure('log4js.json');
+const logger = log4js.getLogger('Tokens');
 
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
 const ISSUING_PLATFORM = 'ethereum';
@@ -41,6 +45,7 @@ function extractPriceFromResponse(response: any): BigNumber {
     const price = response.data[keys[0]].usd;
     return new BigNumber(price);
   } else {
-    throw new Error('No price found');
+    logger.warn(`No price found in response from CoinGecko for token ${keys[0]}`);
+    return null;
   }
 }

@@ -33,7 +33,7 @@ export async function updateTokenInDb(dbPool: Pool, token: Token): Promise<void>
       token.name,
       token.symbol,
       token.decimals,
-      token.price.toString(),
+      token.price ? token.price.toString() : null,
       token.lastUpdated,
     ]);
   } finally {
