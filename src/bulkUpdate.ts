@@ -31,13 +31,20 @@ export async function bulkUpdateTokensInDb(dbPool: Pool) {
   const keys = Object.keys(freshPrices.data);
   logger.debug(`Received ${keys.length} prices from CoinGecko`);
   keys.forEach((address: string) => {
-    const price = freshPrices.data[address].usd;
-    const token = allTokens.find(token => token.address === address);
+    let price = freshPrices.data[address].usd;
+    if (price === undefined) {
+      logger.warn(`Received undefined price for ${address}`);
+      price = null;
+    }
+    // Coingecko returns lowercase addresses, but we store them in origianl form in DB
+    const token = allTokens.find(token => token.address.toLowerCase() === address.toLowerCase());
     if (token) {
       token.price = new BigNumber(price);
-      token.lastUpdated = new Date();
     }
   });
+
+  // Update lastUpdated for all tokens; stop "priceless" tokens to be update on the next run
+  allTokens.forEach(token => { token.lastUpdated = new Date();});
 
   updateTokensInDb(dbPool, allTokens);
 }
@@ -60,7 +67,7 @@ async function updateTokensInDb(dbPool: Pool, tokens: Token[]) {
     for (const token of tokens) {
       await client.query(
         'UPDATE tokens SET price = $1, last_updated = $2 WHERE address = $3',
-        [token.price.toString(), token.lastUpdated, token.address],
+        [token.price ? token.price.toString() : null, token.lastUpdated, token.address],
       );
     }
     await client.query('COMMIT');
@@ -85,7 +92,7 @@ async function fetchAllTokensFromDB(dbPool: Pool): Promise<Token[]> {
           name: row.name,
           symbol: row.symbol,
           decimals: row.decimals,
-          price: new BigNumber(row.price),
+          price: row.price ? new BigNumber(row.price) : null,
           lastUpdated: row.last_updated,
         };
         tokens.push(token);
