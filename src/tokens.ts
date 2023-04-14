@@ -12,22 +12,20 @@ log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
 
 const MILLISECONDS_IN_HOUR = 60 * 60 * 1000; // Milliseconds in 1 hour
-const CACHE_DURATION = 100 * MILLISECONDS_IN_HOUR;
-
-const tokenCache = new Map<string, Token>();
+const PRICE_VALIDITY = 100 * MILLISECONDS_IN_HOUR;
 
 export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Token> {
   logger.info(`Fetching token data for ${tokenAddress}`);
 
   validateAddress(tokenAddress);
-  let cachedToken = await getCachedTokenData(dbPool, tokenAddress);
-  if (cachedToken) {
-    if (isPriceExpired(cachedToken)) {
-      logger.debug(`Cached price expired for ${tokenAddress}, fetching new price`);
-      return updateTokenPrice(dbPool, cachedToken);
+  let dbToken = await fetchTokenDataFromDb(dbPool, tokenAddress);
+  if (dbToken) {
+    if (isPriceExpired(dbToken)) {
+      logger.debug(`Stored price expired for ${tokenAddress}, fetching new price`);
+      return updateTokenPrice(dbPool, dbToken);
     } else {
-      logger.debug(`Returning cached data for ${tokenAddress}`);
-      return cachedToken;
+      logger.debug(`Returning db data for ${tokenAddress}`);
+      return dbToken;
     }
   } else {
     logger.debug(`Token not found in cache or DB, fetching live data`);
@@ -42,26 +40,13 @@ function validateAddress(tokenAddress: string) {
   }
 }
 
-async function getCachedTokenData(dbPool: Pool, tokenAddress: string): Promise<Token | null> {
-  let token: Token = null
-  if (tokenCache.has(tokenAddress)) {
-    token = tokenCache.get(tokenAddress);
-  } else {
-    // Check DB
-    token = await fetchTokenDataFromDb(dbPool, tokenAddress);
-    tokenCache.set(tokenAddress, token);
-  }
-  return token;
-}
-
 function isPriceExpired(token: Token): boolean {
-  return token.lastUpdated.getTime() + CACHE_DURATION < Date.now();
+  return token.lastUpdated.getTime() + PRICE_VALIDITY < Date.now();
 }
 
 async function updateTokenPrice(dbPool: Pool, token: Token): Promise<Token> {
   token.price = await getCoingeckoPrice(token.address);
   updateTokenInDb(dbPool, token);
-  tokenCache.set(token.address, token);
   return token;
 }
 
@@ -90,7 +75,6 @@ async function collectLiveData(dbPool: Pool, tokenAddress: string): Promise<Toke
       };
     }
     updateTokenInDb(dbPool, token);
-    tokenCache.set(tokenAddress, token);
     return token;
   } catch (error) {
     logger.error(`Error fetching token data for ${tokenAddress}`, error);
