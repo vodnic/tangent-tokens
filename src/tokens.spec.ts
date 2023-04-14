@@ -1,0 +1,128 @@
+import { Pool } from "pg";
+import { Token } from "tangent-utils";
+import { getToken } from "./tokens";
+import BigNumber from "bignumber.js";
+import * as coingeckoClient from "./coingeckoClinet";
+import * as persistance from "./persistance";
+import { Contract } from 'web3-eth-contract';
+import * as tangentUtils from 'tangent-utils';
+
+jest.mock("log4js", () => ({
+  configure: jest.fn(),
+  getLogger: () => ({
+    info: jest.fn(),
+    debug: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  }),
+}));
+
+jest.mock("pg", () => ({
+  Pool: jest.fn(() => ({
+    connect: jest.fn(),
+  })),
+}));
+
+// Mock the functions imported from other modules
+jest.mock("./coingeckoClinet", () => ({
+  getCoingeckoCoinPrice: jest.fn(),
+  getCoingeckoTokenPrice: jest.fn(),
+}));
+
+jest.mock("./persistance", () => ({
+  fetchTokenDataFromDb: jest.fn(),
+  updateTokenInDb: jest.fn(),
+}));
+
+const { Contracts } = tangentUtils;
+jest.mock('tangent-utils', () => {
+  const originalTangentUtils = jest.requireActual('tangent-utils');
+  return {
+    ...originalTangentUtils,
+    Contracts: {
+      ...originalTangentUtils.Contracts,
+      ERC20: jest.fn(),
+    },
+  };
+});
+
+describe("tokens.ts", () => {
+  const dummyTokenAddress = "0x1234567890123456789012345678901234567890";
+  const dummyToken: Token = {
+    address: dummyTokenAddress,
+    name: "Dummy",
+    symbol: "DMY",
+    decimals: 18,
+    price: null,
+    lastUpdated: new Date(),
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  test("getToken - throws an error when provided an invalid token address", async () => {
+    const dbPool = new Pool();
+    const invalidAddress = "0xThisIsNotAValidAddress";
+
+    getToken(dbPool, invalidAddress).catch((error) => {
+      expect(error.message).toEqual(`Invalid token address: ${invalidAddress}`);
+    });
+  });
+
+  test("getToken - returns a token from the database when it exists and the price is not expired", async () => {
+    const dbPool = new Pool();
+    (persistance.fetchTokenDataFromDb as jest.Mock).mockImplementation(() => Promise.resolve(dummyToken));
+
+    const result = await getToken(dbPool, dummyTokenAddress);
+    expect(result).toEqual(dummyToken);
+    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dbPool, dummyTokenAddress);
+  });
+
+  test("getToken - returns a token with updated price when it exists in the database but the price is expired", async () => {
+    const dbPool = new Pool();
+    const expiredToken = { ...dummyToken, lastUpdated: new Date(Date.now() - 101 * 60 * 60 * 1000) }; // Token price expired 101 hours ago
+    const updatedPrice = "100";
+    const expectedToken = { ...expiredToken, price: updatedPrice };
+
+    (persistance.fetchTokenDataFromDb as jest.Mock).mockImplementation(() => Promise.resolve(expiredToken));
+    (coingeckoClient.getCoingeckoTokenPrice as jest.Mock).mockImplementation(() => Promise.resolve(updatedPrice));
+
+    const result = await getToken(dbPool, dummyTokenAddress);
+
+    expect(result).toEqual(expectedToken);
+    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dbPool, dummyTokenAddress);
+    expect(coingeckoClient.getCoingeckoTokenPrice).toHaveBeenCalledWith(dummyTokenAddress);
+    expect(persistance.updateTokenInDb).toHaveBeenCalledWith(dbPool, expectedToken);
+  });
+
+  test("getToken - fetches live data and returns a token when it doesn't exist in the database", async () => {
+    const dbPool = new Pool();
+    const liveTokenPrice = new BigNumber(200);
+    const erc20ContractMock: Partial<Contract> = {
+      methods: {
+        name: jest.fn(() => ({ call: jest.fn(() => Promise.resolve("Dummy")) })),
+        symbol: jest.fn(() => ({ call: jest.fn(() => Promise.resolve("DMMY")) })),
+        decimals: jest.fn(() => ({ call: jest.fn(() => Promise.resolve(18)) })),
+      },
+    };
+
+    (persistance.fetchTokenDataFromDb as jest.Mock).mockImplementation(() => Promise.resolve(null));
+    (coingeckoClient.getCoingeckoCoinPrice as jest.Mock).mockImplementation(() => Promise.resolve(liveTokenPrice));
+    (coingeckoClient.getCoingeckoTokenPrice as jest.Mock).mockImplementation(() => Promise.resolve(liveTokenPrice));
+    (persistance.updateTokenInDb as jest.Mock).mockImplementation(() => {});
+    (Contracts.ERC20 as jest.Mock).mockImplementation(() => erc20ContractMock);
+
+    const result = await getToken(dbPool, dummyTokenAddress);
+
+    expect(result.address).toEqual(dummyTokenAddress);
+    expect(result.price).toEqual(liveTokenPrice);
+    expect(result.name).toEqual("Dummy");
+    expect(result.symbol).toEqual("DMMY");
+    expect(result.decimals).toEqual(18);
+    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dbPool, dummyTokenAddress);
+    expect(coingeckoClient.getCoingeckoTokenPrice).toHaveBeenCalledWith(dummyTokenAddress);
+    expect(persistance.updateTokenInDb).toHaveBeenCalled();
+  });
+
+});
