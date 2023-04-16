@@ -14,22 +14,22 @@ const logger = log4js.getLogger('Tokens');
 const MILLISECONDS_IN_HOUR = 60 * 60 * 1000; // Milliseconds in 1 hour
 const PRICE_VALIDITY = 100 * MILLISECONDS_IN_HOUR;
 
-export async function getToken(dbPool: Pool, tokenAddress: string): Promise<Token> {
+export async function getToken(tokenAddress: string): Promise<Token> {
   logger.info(`Fetching token data for ${tokenAddress}`);
 
   validateAddress(tokenAddress);
-  let dbToken = await fetchTokenDataFromDb(dbPool, tokenAddress);
+  let dbToken = await fetchTokenDataFromDb(tokenAddress);
   if (dbToken) {
     if (isPriceExpired(dbToken)) {
       logger.debug(`Stored price expired for ${tokenAddress}, fetching new price`);
-      return updateTokenPrice(dbPool, dbToken);
+      return updateTokenPrice(dbToken);
     } else {
       logger.debug(`Returning db data for ${tokenAddress}`);
       return dbToken;
     }
   } else {
     logger.debug(`Token not found in cache or DB, fetching live data`);
-    return await collectLiveData(dbPool, tokenAddress);
+    return await collectLiveData(tokenAddress);
   }
 }
 
@@ -44,13 +44,13 @@ function isPriceExpired(token: Token): boolean {
   return token.lastUpdated.getTime() + PRICE_VALIDITY < Date.now();
 }
 
-async function updateTokenPrice(dbPool: Pool, token: Token): Promise<Token> {
+async function updateTokenPrice(token: Token): Promise<Token> {
   token.price = await getCoingeckoPrice(token.address);
-  updateTokenInDb(dbPool, token);
+  updateTokenInDb(token);
   return token;
 }
 
-async function collectLiveData(dbPool: Pool, tokenAddress: string): Promise<Token> {
+async function collectLiveData(tokenAddress: string): Promise<Token> {
   try {
     let token: Token = null;
     if (tokenAddress === Addresses.ETHER_DUMMY_ADDRESS) {
@@ -74,7 +74,7 @@ async function collectLiveData(dbPool: Pool, tokenAddress: string): Promise<Toke
         lastUpdated: new Date(),
       };
     }
-    updateTokenInDb(dbPool, token);
+    updateTokenInDb(token);
     return token;
   } catch (error) {
     logger.error(`Error fetching token data for ${tokenAddress}`, error);

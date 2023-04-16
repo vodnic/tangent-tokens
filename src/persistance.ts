@@ -4,7 +4,7 @@ import { BigNumber } from "bignumber.js";
 
 const dbPool = DbPool();
 
-export async function fetchTokenDataFromDb(ignore: Pool, tokenAddress: string): Promise<Token | null> {
+export async function fetchTokenDataFromDb(tokenAddress: string): Promise<Token | null> {
   const client = await dbPool.connect();
   try {
     const result = await client.query('SELECT * FROM tokens WHERE address = $1', [tokenAddress]);
@@ -27,7 +27,7 @@ export async function fetchTokenDataFromDb(ignore: Pool, tokenAddress: string): 
   }
 }
 
-export async function updateTokenInDb(dbPool: Pool, token: Token): Promise<void> {
+export async function updateTokenInDb(token: Token): Promise<void> {
   const client = await dbPool.connect();
   try {
     await client.query('INSERT INTO tokens (address, name, symbol, decimals, price, last_updated) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (address) DO UPDATE SET name = $2, symbol = $3, decimals = $4, price = $5, last_updated = $6', [

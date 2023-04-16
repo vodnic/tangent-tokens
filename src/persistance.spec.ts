@@ -59,7 +59,7 @@ describe("fetchTokenDataFromDb", () => {
       VALUES ('0x123', 'Test Token', 'TT', 18, '1.0', NOW());
     `);
 
-    const token = await fetchTokenDataFromDb(pool, "0x123");
+    const token = await fetchTokenDataFromDb("0x123");
     expect(token).toEqual<Token>({
       address: "0x123",
       name: "Test Token",
@@ -88,7 +88,7 @@ describe("updateTokenInDb", () => {
       lastUpdated: new Date(),
     };
 
-    await updateTokenInDb(pool, token);
+    await updateTokenInDb(token);
 
     const { rows } = await pool.query("SELECT * FROM tokens WHERE address = '0x123'");
     expect(rows[0]).toEqual({

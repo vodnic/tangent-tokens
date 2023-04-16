@@ -73,25 +73,22 @@ describe("tokens.ts", () => {
   });
 
   test("getToken - throws an error when provided an invalid token address", async () => {
-    const dbPool = new Pool();
     const invalidAddress = "0xThisIsNotAValidAddress";
 
-    getToken(dbPool, invalidAddress).catch((error) => {
+    getToken(invalidAddress).catch((error) => {
       expect(error.message).toEqual(`Invalid token address: ${invalidAddress}`);
     });
   });
 
   test("getToken - returns a token from the database when it exists and the price is not expired", async () => {
-    const dbPool = new Pool();
     (persistance.fetchTokenDataFromDb as jest.Mock).mockImplementation(() => Promise.resolve(dummyToken));
 
-    const result = await getToken(dbPool, dummyTokenAddress);
+    const result = await getToken(dummyTokenAddress);
     expect(result).toEqual(dummyToken);
-    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dbPool, dummyTokenAddress);
+    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dummyTokenAddress);
   });
 
   test("getToken - returns a token with updated price when it exists in the database but the price is expired", async () => {
-    const dbPool = new Pool();
     const expiredToken = { ...dummyToken, lastUpdated: new Date(Date.now() - 101 * 60 * 60 * 1000) }; // Token price expired 101 hours ago
     const updatedPrice = "100";
     const expectedToken = { ...expiredToken, price: updatedPrice };
@@ -99,16 +96,15 @@ describe("tokens.ts", () => {
     (persistance.fetchTokenDataFromDb as jest.Mock).mockImplementation(() => Promise.resolve(expiredToken));
     (coingeckoClient.getCoingeckoTokenPrice as jest.Mock).mockImplementation(() => Promise.resolve(updatedPrice));
 
-    const result = await getToken(dbPool, dummyTokenAddress);
+    const result = await getToken(dummyTokenAddress);
 
     expect(result).toEqual(expectedToken);
-    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dbPool, dummyTokenAddress);
+    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dummyTokenAddress);
     expect(coingeckoClient.getCoingeckoTokenPrice).toHaveBeenCalledWith(dummyTokenAddress);
-    expect(persistance.updateTokenInDb).toHaveBeenCalledWith(dbPool, expectedToken);
+    expect(persistance.updateTokenInDb).toHaveBeenCalledWith(expectedToken);
   });
 
   test("getToken - fetches live data and returns a token when it doesn't exist in the database", async () => {
-    const dbPool = new Pool();
     const liveTokenPrice = new BigNumber(200);
     const erc20ContractMock: Partial<Contract> = {
       methods: {
@@ -124,14 +120,14 @@ describe("tokens.ts", () => {
     (persistance.updateTokenInDb as jest.Mock).mockImplementation(() => {});
     (Contracts.ERC20 as jest.Mock).mockImplementation(() => erc20ContractMock);
 
-    const result = await getToken(dbPool, dummyTokenAddress);
+    const result = await getToken(dummyTokenAddress);
 
     expect(result.address).toEqual(dummyTokenAddress);
     expect(result.price).toEqual(liveTokenPrice);
     expect(result.name).toEqual("Dummy");
     expect(result.symbol).toEqual("DMMY");
     expect(result.decimals).toEqual(18);
-    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dbPool, dummyTokenAddress);
+    expect(persistance.fetchTokenDataFromDb).toHaveBeenCalledWith(dummyTokenAddress);
     expect(coingeckoClient.getCoingeckoTokenPrice).toHaveBeenCalledWith(dummyTokenAddress);
     expect(persistance.updateTokenInDb).toHaveBeenCalled();
   });

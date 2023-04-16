@@ -22,7 +22,7 @@ app.get('/token/:tokenAddress', async (req, res) => {
   const tokenAddress = req.params.tokenAddress;
   try {
     logger.info(`Fetching token ${tokenAddress}`);
-    const token = await withCache("getToken", CacheDuration.ONE_HOUR, getToken, [dbPool, tokenAddress], [tokenAddress]);
+    const token = await withCache("getToken", CacheDuration.ONE_HOUR, getToken, [tokenAddress]);
     res.status(200);
     res.send(token);
   } catch (e) {
