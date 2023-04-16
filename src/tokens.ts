@@ -1,5 +1,4 @@
 import log4js from "log4js";
-import { Pool } from "pg";
 import { BigNumber } from "bignumber.js";
 import { Token } from "tangent-utils";
 import { Web3Current, Addresses, Contracts } from "tangent-utils";

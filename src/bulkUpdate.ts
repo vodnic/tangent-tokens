@@ -1,12 +1,14 @@
 import axios from 'axios';
 import log4js from "log4js";
-import { Pool } from "pg";
 import { BigNumber } from "bignumber.js";
 import { Token } from "tangent-utils";
 import { Addresses } from 'tangent-utils';
+import { DbPool } from 'tangent-utils';
 
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
+
+const dbPool = DbPool();
 
 const ISSUING_PLATFORM = 'ethereum';
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
@@ -18,9 +20,9 @@ const MAX_BULK_UPDATE = 15; // I can't find anythying in the docs, I tried 20, a
 * in that it does one request to CoinGecko for all tokens, instead of one per 
 * token in getToken().
 */
-export async function bulkUpdateTokensInDb(dbPool: Pool) {
+export async function bulkUpdateTokensInDb() {
   logger.info('Bulk updating tokens in DB');
-  const allTokens: Token[] = await fetchAllTokensFromDB(dbPool);
+  const allTokens: Token[] = await fetchAllTokensFromDB();
   const addresses: string[] = allTokens.map(token => token.address);
   const tokenAddress: string[] = addresses.filter(address => address !== Addresses.ETHER_DUMMY_ADDRESS);
   const jointAddress = tokenAddress.join(',');
@@ -46,7 +48,7 @@ export async function bulkUpdateTokensInDb(dbPool: Pool) {
   // Update lastUpdated for all tokens; stop "priceless" tokens to be update on the next run
   allTokens.forEach(token => { token.lastUpdated = new Date();});
 
-  updateTokensInDb(dbPool, allTokens);
+  updateTokensInDb(allTokens);
 }
 
 async function fetchFreshPrices(tokenAddresses: string): Promise<any> {
@@ -59,7 +61,7 @@ async function fetchFreshPrices(tokenAddresses: string): Promise<any> {
   }
 }
 
-async function updateTokensInDb(dbPool: Pool, tokens: Token[]) {
+async function updateTokensInDb(tokens: Token[]) {
   logger.info('Updating tokens in DB');
   const client = await dbPool.connect();
   try {
@@ -80,7 +82,7 @@ async function updateTokensInDb(dbPool: Pool, tokens: Token[]) {
   }
 }
 
-async function fetchAllTokensFromDB(dbPool: Pool): Promise<Token[]> {
+async function fetchAllTokensFromDB(): Promise<Token[]> {
   const client = await dbPool.connect();
   const tokens: Token[] = [];
   try {
