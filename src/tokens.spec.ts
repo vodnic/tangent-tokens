@@ -1,6 +1,6 @@
+import Web3 from "web3";
 import { Pool } from "pg";
 import { Token } from "tangent-utils";
-import { getToken } from "./tokens";
 import BigNumber from "bignumber.js";
 import * as coingeckoClient from "./coingeckoClinet";
 import * as persistance from "./persistance";
@@ -34,17 +34,27 @@ jest.mock("./persistance", () => ({
   updateTokenInDb: jest.fn(),
 }));
 
+const mockWeb3Mock = {
+  utils: {
+    isAddress: Web3.utils.isAddress,
+  },
+};
+
 const { Contracts } = tangentUtils;
 jest.mock('tangent-utils', () => {
   const originalTangentUtils = jest.requireActual('tangent-utils');
   return {
     ...originalTangentUtils,
+    Web3Current: jest.fn(), // <-- Update here
     Contracts: {
       ...originalTangentUtils.Contracts,
       ERC20: jest.fn(),
     },
   };
 });
+
+(tangentUtils.Web3Current as jest.Mock).mockImplementation(() => mockWeb3Mock);
+import { getToken } from "./tokens";
 
 describe("tokens.ts", () => {
   const dummyTokenAddress = "0x1234567890123456789012345678901234567890";
@@ -59,6 +69,7 @@ describe("tokens.ts", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (tangentUtils.Web3Current as jest.Mock).mockImplementation(() => mockWeb3Mock);
   });
 
   test("getToken - throws an error when provided an invalid token address", async () => {

@@ -1,20 +1,55 @@
+import { newDb } from "pg-mem";
 import { Pool } from "pg";
 import { Token } from "tangent-utils";
 import { BigNumber } from "bignumber.js";
+import * as tangentUtils from "tangent-utils";
+
+jest.mock("tangent-utils", () => {
+  const originalTangentUtils = jest.requireActual("tangent-utils");
+  return {
+    ...originalTangentUtils,
+    DbPool: jest.fn(),
+  };
+});
+
+const db = newDb();
+const pg = db.adapters.createPg();
+const connection = new pg.Client()
+
+const mockDbPool = {
+  connect: () => {
+    return {
+      query: connection.query.bind(connection),
+      release: jest.fn(),
+    };
+  },
+  query: connection.query.bind(connection),
+  end: jest.fn(),
+};
+
+(tangentUtils.DbPool as jest.Mock).mockImplementation(() => mockDbPool);
+
 import { fetchTokenDataFromDb, updateTokenInDb } from "./persistance";
-import { createPgMem } from "./utils/pgMem";
+
+beforeAll(async () => {
+  await connection.query(`
+    CREATE TABLE tokens (
+      address VARCHAR(42) PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      symbol VARCHAR(10) NOT NULL,
+      decimals INTEGER NOT NULL,
+      price NUMERIC(38, 18) NOT NULL,
+      last_updated TIMESTAMP WITH TIME ZONE NOT NULL
+    );
+  `);
+});
+
 
 describe("fetchTokenDataFromDb", () => {
   let pool: Pool;
 
   beforeEach(async () => {
-    const db = await createPgMem();
-    const pg = db.adapters.createPg();
-    pool = new pg.Pool();
-  });
-
-  afterEach(async () => {
-    await pool.end();
+    pool = connection;
   });
 
   it("returns token data from the database", async () => {
@@ -40,13 +75,7 @@ describe("updateTokenInDb", () => {
   let pool: Pool;
 
   beforeEach(async () => {
-    const db = await createPgMem();
-    const pg = db.adapters.createPg();
-    pool = new pg.Pool();
-  });
-
-  afterEach(async () => {
-    await pool.end();
+    pool = connection;
   });
 
   it("updates the token data in the database", async () => {

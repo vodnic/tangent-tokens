@@ -1,8 +1,10 @@
 import { Pool } from "pg";
-import { Token } from "tangent-utils";
+import { DbPool, Token } from "tangent-utils";
 import { BigNumber } from "bignumber.js";
 
-export async function fetchTokenDataFromDb(dbPool: Pool, tokenAddress: string): Promise<Token | null> {
+const dbPool = DbPool();
+
+export async function fetchTokenDataFromDb(ignore: Pool, tokenAddress: string): Promise<Token | null> {
   const client = await dbPool.connect();
   try {
     const result = await client.query('SELECT * FROM tokens WHERE address = $1', [tokenAddress]);

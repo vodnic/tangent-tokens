@@ -6,7 +6,7 @@ import { Web3Current, Addresses, Contracts } from "tangent-utils";
 import { getCoingeckoCoinPrice, getCoingeckoTokenPrice } from "./coingeckoClinet";
 import { fetchTokenDataFromDb, updateTokenInDb } from "./persistance";
 
-const web3 = Web3Current;
+const web3 = Web3Current();
 
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
