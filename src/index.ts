@@ -3,8 +3,8 @@ import log4js from 'log4js';
 import { getToken } from './tokens';
 import dotenv from 'dotenv';
 import { bulkUpdateTokensInDb } from './bulkUpdate';
-import { CacheDuration, withCache } from 'tangent-utils';
-import { Web3Current, DbPool } from 'tangent-utils';
+import { CacheDuration, initialHealthCheck, withCache } from 'tangent-utils';
+import { Web3Current, DbPool, healthCheck } from 'tangent-utils';
 
 dotenv.config();
 log4js.configure('log4js.json');
@@ -30,29 +30,13 @@ app.get('/token/:tokenAddress', async (req, res) => {
   }
 });
 
+const dependencies: any[] = [Web3Current(), DbPool()];
+initialHealthCheck(dependencies);
 app.get('/status', async (req, res) => {
-  logger.info(`Fetching status`);
-  let dbStatus = 'OK';
-  try {
-    DbPool().healthCheck();
-  } catch (e) {
-    dbStatus = 'ERROR';
-  }
-
-  let web3Status = 'OK';
-  try {
-    Web3Current().healthCheck();
-  } catch (e) {
-    web3Status = 'ERROR';
-  }
-
-  res.status(200);
-  const status = (dbStatus === 'OK' && web3Status === 'OK') ? 'OK' : 'NOK';
-  res.send({ 
-    status: status,
-    dbStatus: dbStatus,
-    web3Status: web3Status
-  });
+  logger.info(`GET /status`);
+  const status = await healthCheck(dependencies);
+  logger.debug(`Health check: ${JSON.stringify(status)}`);
+  return res.status(200).send({name: "Tokens", ...status});
 });
 
 bulkUpdateTokensInDb();
