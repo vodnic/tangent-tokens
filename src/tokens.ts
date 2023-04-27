@@ -61,6 +61,15 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
         price: await getCoingeckoCoinPrice(tokenAddress),
         lastUpdated: new Date(),
       };
+    } else if (tokenAddress === Addresses.WRAPPED_ETHER) {
+      token = {
+        address: tokenAddress,
+        name: "Wrapped Ether",
+        symbol: "WETH",
+        decimals: 18,
+        price: await getCoingeckoCoinPrice(Addresses.ETHER_DUMMY_ADDRESS),
+        lastUpdated: new Date(),
+      };
     } else {
       // Some tokens (like MKR) might fail here, as they don't implement name and symbol of ERC20
       const tokenContract = Contracts.ERC20(web3, tokenAddress);
