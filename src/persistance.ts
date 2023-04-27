@@ -15,7 +15,7 @@ export async function fetchTokenDataFromDb(tokenAddress: string): Promise<Token 
         name: row.name,
         symbol: row.symbol,
         decimals: row.decimals,
-        price: new BigNumber(row.price),
+        price: row.price ? new BigNumber(row.price) : null,
         lastUpdated: row.last_updated,
       };
       return token;
