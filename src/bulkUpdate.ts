@@ -96,6 +96,7 @@ async function fetchAllTokensFromDB(): Promise<Token[]> {
           decimals: row.decimals,
           price: row.price ? new BigNumber(row.price) : null,
           lastUpdated: row.last_updated,
+          image: row.image_url,
         };
         tokens.push(token);
       });

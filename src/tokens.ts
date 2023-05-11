@@ -2,7 +2,7 @@ import log4js from "log4js";
 import { BigNumber } from "bignumber.js";
 import { Token } from "tangent-utils";
 import { Web3Current, Addresses, Contracts } from "tangent-utils";
-import { getCoingeckoCoinPrice, getCoingeckoTokenPrice } from "./coingeckoClinet";
+import { getCoingeckoCoinPrice, getCoingeckoTokenImage, getCoingeckoTokenPrice } from "./coingeckoClinet";
 import { fetchTokenDataFromDb, updateTokenInDb } from "./persistance";
 
 const web3 = Web3Current();
@@ -11,7 +11,7 @@ log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
 
 const MILLISECONDS_IN_HOUR = 60 * 60 * 1000; // Milliseconds in 1 hour
-const PRICE_VALIDITY = 100 * MILLISECONDS_IN_HOUR;
+const PRICE_VALIDITY = 10 * MILLISECONDS_IN_HOUR;
 
 export async function getToken(tokenAddress: string): Promise<Token> {
   logger.info(`Fetching token data for ${tokenAddress}`);
@@ -24,6 +24,14 @@ export async function getToken(tokenAddress: string): Promise<Token> {
       return updateTokenPrice(dbToken);
     } else {
       logger.debug(`Returning db data for ${tokenAddress}`);
+
+      // TODO: Remove this hack after token images are fixed.
+      if (dbToken.image === null) {
+        const image = await getCoingeckoTokenImage(tokenAddress);
+        dbToken.image = image;
+      }
+
+      updateTokenInDb(dbToken);
       return dbToken;
     }
   } else {
@@ -60,6 +68,7 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
         decimals: 18,
         price: await getCoingeckoCoinPrice(tokenAddress),
         lastUpdated: new Date(),
+        image: await getCoingeckoTokenImage(tokenAddress)
       };
     } else if (tokenAddress === Addresses.WRAPPED_ETHER) {
       token = {
@@ -69,6 +78,7 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
         decimals: 18,
         price: await getCoingeckoCoinPrice(Addresses.ETHER_DUMMY_ADDRESS),
         lastUpdated: new Date(),
+        image: await getCoingeckoTokenImage(tokenAddress)
       };
     } else {
       // Some tokens (like MKR) might fail here, as they don't implement name and symbol of ERC20
@@ -80,8 +90,10 @@ async function collectLiveData(tokenAddress: string): Promise<Token> {
         decimals: await tokenContract.methods.decimals().call(),
         price: await getCoingeckoPrice(tokenAddress),
         lastUpdated: new Date(),
+        image: await getCoingeckoTokenImage(tokenAddress)
       };
     }
+
     updateTokenInDb(token);
     return token;
   } catch (error) {

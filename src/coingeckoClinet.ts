@@ -1,6 +1,7 @@
 import log4js from "log4js";
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
+import { Addresses } from "tangent-utils";
 
 log4js.configure('log4js.json');
 const logger = log4js.getLogger('Tokens');
@@ -46,6 +47,43 @@ function extractPriceFromResponse(response: any): BigNumber {
     return new BigNumber(price);
   } else {
     logger.warn(`No price found in response from CoinGecko for token ${keys[0]}`);
+    return null;
+  }
+}
+
+export async function getCoingeckoTokenImage(tokenAddress: string): Promise<string | null> {
+  try {
+    let imageUrl = null;
+    if (tokenAddress == Addresses.ETHER_DUMMY_ADDRESS) {  
+      imageUrl = 'https://assets.coingecko.com/coins/images/279/thumb/ethereum.png?1595348880'; 
+    } else {
+      const path = `${COINGECKO_URL}/coins/ethereum/contract/${tokenAddress}`;
+      const response = await axios.get(path);
+
+      imageUrl = extractImageUrlFromResponse(response);
+    }
+
+    if (imageUrl) {
+      const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+      const base64Image = Buffer.from(imageResponse.data, 'binary').toString('base64');
+
+      return base64Image;
+    } else {
+      return null;
+    }
+
+  } catch (error) {
+    console.error(`Error fetching token image:` + error.code);
+    console.error(error.message);
+    console.error(error.response);
+    return null;
+  }
+}
+
+function extractImageUrlFromResponse(response: any): string | null {
+  if (response.data && response.data.image && response.data.image.thumb) {
+    return response.data.image.thumb;
+  } else {
     return null;
   }
 }
