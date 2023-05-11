@@ -60,7 +60,7 @@ async function updateTokenPrice(token: Token): Promise<Token> {
 async function collectLiveData(tokenAddress: string): Promise<Token> {
   try {
     let token: Token = null;
-    if (tokenAddress === Addresses.ETHER_DUMMY_ADDRESS) {
+    if (tokenAddress.toLocaleLowerCase() === Addresses.ETHER_DUMMY_ADDRESS.toLocaleLowerCase()) {
       token = {
         address: tokenAddress,
         name: "Ether",
