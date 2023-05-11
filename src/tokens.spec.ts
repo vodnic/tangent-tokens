@@ -65,6 +65,7 @@ describe("tokens.ts", () => {
     decimals: 18,
     price: null,
     lastUpdated: new Date(),
+    image: null,
   };
 
   beforeEach(() => {
