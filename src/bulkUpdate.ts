@@ -12,7 +12,7 @@ const dbPool = DbPool();
 
 const ISSUING_PLATFORM = 'ethereum';
 const COINGECKO_URL = 'https://api.coingecko.com/api/v3';
-const MAX_BULK_UPDATE = 15; // I can't find anythying in the docs, I tried 20, and got different return counts
+const MAX_BULK_UPDATE = 50; // I can't find anythying in the docs, I tried 20, and got different return counts
 
 /*
 * Fetches oldest MAX_BULK_UPDATE tokens from DB and updates their prices
