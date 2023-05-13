@@ -25,12 +25,6 @@ export async function getToken(tokenAddress: string): Promise<Token> {
     } else {
       logger.debug(`Returning db data for ${tokenAddress}`);
 
-      // TODO: Remove this hack after token images are fixed.
-      if (dbToken.image === null) {
-        const image = await getCoingeckoTokenImage(tokenAddress);
-        dbToken.image = image;
-      }
-
       updateTokenInDb(dbToken);
       return dbToken;
     }
